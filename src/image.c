@@ -290,9 +290,36 @@ void draw_detections(image im, int num, float thresh, box *boxes, float **probs,
 
             draw_box_width(im, left, top, right, bot, width, red, green, blue);
             if (alphabet) {
-                image label = get_label(alphabet, labelstr, (im.h*.03)/10);
-                draw_label(im, top + width, left, label, rgb);
-                free_image(label);
+                //if (true) {
+                if (strcmp(labelstr, "cell phone") == 0) {
+                    image label = get_label(alphabet, labelstr, (im.h*.03)/10);
+                    draw_label(im, top + width, left, label, rgb);
+                    free_image(label);
+                }
+                else {
+                    IplImage *disp = cvCreateImage(cvSize(im.w, im.h), IPL_DEPTH_8U, im.c);
+                    int step = disp->widthStep;
+                    int x, y, k;
+                    for (y = 0; y < im.h; ++y) {
+                        for (x = 0; x < im.w; ++x) {
+                            for (k = 0; k < im.c; ++k) {
+                                disp->imageData[y * step + x * im.c + k] = (unsigned char) (get_pixel(im, x, y, k) *
+                                                                                            255);
+                            }
+                        }
+                    }
+                    CvFont font;
+                    cvInitFont(&font, CV_FONT_HERSHEY_SIMPLEX, 0.5, 0.5, 0, 1, 8);
+                    cvPutText(disp, labelstr, cvPoint(left, top + width), &font, CV_RGB(255, 255, 255));
+                    for (y = 0; y < im.h; ++y) {
+                        for (x = 0; x < im.w; ++x) {
+                            for (k = 0; k < im.c; ++k) {
+                                set_pixel(im, x, y, k, disp->imageData[y * step + x * im.c + k] / 255.0);
+                            }
+                        }
+                    }
+                    cvReleaseImage(&disp);
+                }
             }
             if (masks){
                 image mask = float_to_image(14, 14, 1, masks[i]);
