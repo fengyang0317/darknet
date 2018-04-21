@@ -1,3 +1,5 @@
+#include <zconf.h>
+#include <fcntl.h>
 #include "darknet.h"
 
 static int coco_ids[] = {1,2,3,4,5,6,7,8,9,10,11,13,14,15,16,17,18,19,20,21,22,23,24,25,27,28,31,32,33,34,35,36,37,38,39,40,41,42,43,44,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,67,70,72,73,74,75,76,77,78,79,80,81,82,84,85,86,87,88,89,90};
@@ -573,6 +575,8 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
     char buff[256];
     char *input = buff;
     float nms=.45;
+    char out[256] = "det_yolo";
+    int sfd = dup(STDOUT_FILENO);
     while(1){
         if(filename){
             strncpy(input, filename, 256);
@@ -583,6 +587,11 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
             if(!input) return;
             strtok(input, "\n");
         }
+        int p = strlen(input) - 1;
+        while (input[p] != '/') p--;
+        strcpy(out + 8, input + p);
+        if (access(out,  F_OK) != -1) continue;
+        int fd = open(out, O_WRONLY|O_CREAT, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
         image im = load_image_color(input,0,0);
         image sized = letterbox_image(im, net->w, net->h);
         //image sized = resize_image(im, net->w, net->h);
@@ -601,23 +610,26 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
         //printf("%d\n", nboxes);
         //if (nms) do_nms_obj(boxes, probs, l.w*l.h*l.n, l.classes, nms);
         if (nms) do_nms_sort(dets, nboxes, l.classes, nms);
+        dup2(fd, STDOUT_FILENO);
         draw_detections(im, dets, nboxes, thresh, names, alphabet, l.classes);
+        dup2(sfd, STDOUT_FILENO);
+        close(fd);
         free_detections(dets, nboxes);
-        if(outfile){
-            save_image(im, outfile);
-        }
-        else{
-            save_image(im, "predictions");
-#ifdef OPENCV
-            cvNamedWindow("predictions", CV_WINDOW_NORMAL); 
-            if(fullscreen){
-                cvSetWindowProperty("predictions", CV_WND_PROP_FULLSCREEN, CV_WINDOW_FULLSCREEN);
-            }
-            show_image(im, "predictions");
-            cvWaitKey(0);
-            cvDestroyAllWindows();
-#endif
-        }
+//        if(outfile){
+//            save_image(im, outfile);
+//        }
+//        else{
+//            save_image(im, "predictions");
+//#ifdef OPENCV
+//            cvNamedWindow("predictions", CV_WINDOW_NORMAL);
+//            if(fullscreen){
+//                cvSetWindowProperty("predictions", CV_WND_PROP_FULLSCREEN, CV_WINDOW_FULLSCREEN);
+//            }
+//            show_image(im, "predictions");
+//            cvWaitKey(0);
+//            cvDestroyAllWindows();
+//#endif
+//        }
 
         free_image(im);
         free_image(sized);
